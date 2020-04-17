@@ -1,0 +1,72 @@
+1.获取原图片尺寸
+通常，我们使用BitmapFactory.decodeResource()方法来从资源文件中读取一张图片并生成一个Bitmap。但如果使用一个BitmapFactory.Options对象，并把该对象的inJustDecodeBounds属性设置为true，decodeResource()方法就不会生成Bitmap对象，而仅仅是读取该图片的尺寸和类型信息：
+
+BitmapFactory.Options options = new BitmapFactory.Options();
+options.inJustDecodeBounds = true;
+BitmapFactory.decodeResource(getResources(), R.id.myimage, options);
+intimageHeight = options.outHeight;
+intimageWidth = options.outWidth;
+String imageType = options.outMimeType;
+
+
+2.根据原图尺寸和目标区域的尺寸计算出合适的Bitmap尺寸
+
+BitmapFactory.Options类有一个参数inSampleSize，该参数为int型，他的值指示了在解析图片为Bitmap时在长宽两个方向上像素缩小的倍数。
+inSampleSize的默认值和最小值为1（当小于1时，解码器将该值当做1来处理），且在大于1时，该值只能为2的幂（当不为2的幂时，解码器会取与该值最接近的2的幂）。
+例如，当inSampleSize为2时，一个20001000的图片，将被缩小为1000500，相应地，它的像素数和内存占用都被缩小为了原来的1/4：
+
+publicstatic int calculateInSampleSize(
+            BitmapFactory.Options options, int reqWidth, int reqHeight) {
+    // 原始图片的宽高
+    finalint height = options.outHeight;
+    finalint width = options.outWidth;
+    intinSampleSize = 1;
+ 
+    if(height > reqHeight || width > reqWidth) {
+ 
+        finalint halfHeight = height / 2;
+        finalint halfWidth = width / 2;
+ 
+        // 在保证解析出的bitmap宽高分别大于目标尺寸宽高的前提下，取可能的inSampleSize的最大值
+        while((halfHeight / inSampleSize) > reqHeight
+                && (halfWidth / inSampleSize) > reqWidth) {
+            inSampleSize *= 2;
+        }
+    }
+ 
+    returninSampleSize;
+}
+
+
+3.根据计算出的inSampleSize生成Bitmap
+
+publicstatic Bitmap decodeSampledBitmapFromResource(Resources res, int resId,
+        intreqWidth, int reqHeight) {
+ 
+    // 首先设置 inJustDecodeBounds=true 来获取图片尺寸
+    finalBitmapFactory.Options options = new BitmapFactory.Options();
+    options.inJustDecodeBounds = true;
+    BitmapFactory.decodeResource(res, resId, options);
+ 
+    // 计算 inSampleSize 的值
+    options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight);
+ 
+    // 根据计算出的 inSampleSize 来解码图片生成Bitmap
+    options.inJustDecodeBounds = false;
+    returnBitmapFactory.decodeResource(res, resId, options);
+}
+
+这里有一点要注意，就是要在第二遍decode之前把inJustDecodeBounds设置回false。
+
+4. 调用以上的decodeSampledBitmapFromResource方法，使用自定尺寸的Bitmap。
+
+如果你要将一张大图设置为一个100*100的缩略图，执行以下代码：
+
+mImageView.setImageBitmap(decodeSampledBitmapFromResource(getResources(), R.id.myimage, 100,100));
+到此，使用decodeResource()方法将一个大图解析为小尺寸bitmap的应用就完成了。同理，还可以使用decodeStream()，decodeFile()等方法做相同的事，原理是一样的
+
+
+
+
+
+
